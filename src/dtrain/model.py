@@ -103,3 +103,28 @@ class DecoderLayer(nn.Module):
     def forward(self, x: torch.Tensor, cos: torch.Tensor, sin: torch.Tensor) -> torch.Tensor:
         x = x + self.attention(self.input_layernorm(x), cos, sin)
         return x + self.mlp(self.post_attention_layernorm(x))
+
+
+class Llama(nn.Module):
+    def __init__(self, config: LlamaConfig):
+        super().__init__()
+        if config.num_attention_heads % config.num_key_value_heads != 0:
+            raise ValueError("num_attention_heads must be a multiple of num_key_value_heads")
+        self.config = config
+        self.embedding = nn.Embedding(config.vocab_size, config.hidden_size)
+        nn.init.normal_(self.embedding.weight, mean=0.0, std=1.0)
+        self.decoder_layers = nn.ModuleList(
+            DecoderLayer(config) for _ in range(config.num_hidden_layers)
+        )
+        self.final_norm = RMSNorm(config.hidden_size, config.rms_norm_eps)
+        self.final_proj = nn.Linear(config.hidden_size, config.vocab_size, bias=False)
+        init_linear(self.final_proj.weight)
+        cos, sin = get_cos_sin(config.max_position_embeddings, config.head_dim, config.rope_theta)
+        self.register_buffer("cos", cos, persistent=False)
+        self.register_buffer("sin", sin, persistent=False)
+
+    def forward(self, input_ids: torch.Tensor) -> torch.Tensor:
+        x = self.embedding(input_ids)
+        for layer in self.decoder_layers:
+            x = layer(x, self.cos, self.sin)
+        return self.final_proj(self.final_norm(x))

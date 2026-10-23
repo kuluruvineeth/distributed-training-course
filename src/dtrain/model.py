@@ -1,5 +1,8 @@
 from dataclasses import dataclass
 
+import torch
+import torch.nn as nn
+
 
 @dataclass
 class LlamaConfig:
@@ -16,3 +19,16 @@ class LlamaConfig:
     @property
     def head_dim(self) -> int:
         return self.hidden_size // self.num_attention_heads
+
+
+class RMSNorm(nn.Module):
+    def __init__(self, hidden_size: int, eps: float):
+        super().__init__()
+        self.weight = nn.Parameter(torch.ones(hidden_size))
+        self.eps = eps
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        dtype = x.dtype
+        x = x.float()
+        x = x * torch.rsqrt(x.pow(2).mean(-1, keepdim=True) + self.eps)
+        return self.weight * x.to(dtype)

@@ -90,3 +90,16 @@ class MLP(nn.Module):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.down_proj(F.silu(self.gate_proj(x)) * self.up_proj(x))
+
+
+class DecoderLayer(nn.Module):
+    def __init__(self, config: LlamaConfig):
+        super().__init__()
+        self.input_layernorm = RMSNorm(config.hidden_size, config.rms_norm_eps)
+        self.attention = Attention(config)
+        self.post_attention_layernorm = RMSNorm(config.hidden_size, config.rms_norm_eps)
+        self.mlp = MLP(config)
+
+    def forward(self, x: torch.Tensor, cos: torch.Tensor, sin: torch.Tensor) -> torch.Tensor:
+        x = x + self.attention(self.input_layernorm(x), cos, sin)
+        return x + self.mlp(self.post_attention_layernorm(x))

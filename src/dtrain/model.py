@@ -1,7 +1,9 @@
+import math
 from dataclasses import dataclass
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 
 @dataclass
@@ -33,6 +35,11 @@ def apply_rotary_pos_emb(x: torch.Tensor, cos: torch.Tensor, sin: torch.Tensor) 
     return x * cos + rotated * sin
 
 
+def init_linear(weight: torch.Tensor) -> None:
+    bound = math.sqrt(1 / weight.size(1))
+    nn.init.uniform_(weight, -bound, bound)
+
+
 class RMSNorm(nn.Module):
     def __init__(self, hidden_size: int, eps: float):
         super().__init__()
@@ -44,3 +51,29 @@ class RMSNorm(nn.Module):
         x = x.float()
         x = x * torch.rsqrt(x.pow(2).mean(-1, keepdim=True) + self.eps)
         return self.weight * x.to(dtype)
+
+
+class Attention(nn.Module):
+    def __init__(self, config: LlamaConfig):
+        super().__init__()
+        self.num_heads = config.num_attention_heads
+        self.num_kv_heads = config.num_key_value_heads
+        self.head_dim = config.head_dim
+        self.q_proj = nn.Linear(config.hidden_size, self.num_heads * self.head_dim, bias=False)
+        self.k_proj = nn.Linear(config.hidden_size, self.num_kv_heads * self.head_dim, bias=False)
+        self.v_proj = nn.Linear(config.hidden_size, self.num_kv_heads * self.head_dim, bias=False)
+        self.out_proj = nn.Linear(config.hidden_size, config.hidden_size, bias=False)
+        for proj in (self.q_proj, self.k_proj, self.v_proj, self.out_proj):
+            init_linear(proj.weight)
+
+    def forward(self, x: torch.Tensor, cos: torch.Tensor, sin: torch.Tensor) -> torch.Tensor:
+        batch, seq, _ = x.shape
+        q = self.q_proj(x).view(batch, seq, self.num_heads, self.head_dim).transpose(1, 2)
+        k = self.k_proj(x).view(batch, seq, self.num_kv_heads, self.head_dim).transpose(1, 2)
+        v = self.v_proj(x).view(batch, seq, self.num_kv_heads, self.head_dim).transpose(1, 2)
+        q = apply_rotary_pos_emb(q, cos[:seq], sin[:seq])
+        k = apply_rotary_pos_emb(k, cos[:seq], sin[:seq])
+        k = k.repeat_interleave(self.num_heads // self.num_kv_heads, dim=1)
+        v = v.repeat_interleave(self.num_heads // self.num_kv_heads, dim=1)
+        out = F.scaled_dot_product_attention(q, k, v, is_causal=True)
+        return self.out_proj(out.transpose(1, 2).reshape(batch, seq, -1))

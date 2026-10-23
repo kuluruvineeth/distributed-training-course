@@ -21,6 +21,18 @@ class LlamaConfig:
         return self.hidden_size // self.num_attention_heads
 
 
+def get_cos_sin(seq_length: int, head_dim: int, base: float) -> tuple[torch.Tensor, torch.Tensor]:
+    theta = 1.0 / (base ** (torch.arange(0, head_dim, 2, dtype=torch.int64).float() / head_dim))
+    angles = torch.arange(seq_length).float().unsqueeze(1) * theta
+    return torch.cos(angles).repeat(1, 2), torch.sin(angles).repeat(1, 2)
+
+
+def apply_rotary_pos_emb(x: torch.Tensor, cos: torch.Tensor, sin: torch.Tensor) -> torch.Tensor:
+    half = x.size(-1) // 2
+    rotated = torch.cat([-x[..., half:], x[..., :half]], dim=-1)
+    return x * cos + rotated * sin
+
+
 class RMSNorm(nn.Module):
     def __init__(self, hidden_size: int, eps: float):
         super().__init__()

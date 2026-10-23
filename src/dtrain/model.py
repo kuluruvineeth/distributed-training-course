@@ -77,3 +77,16 @@ class Attention(nn.Module):
         v = v.repeat_interleave(self.num_heads // self.num_kv_heads, dim=1)
         out = F.scaled_dot_product_attention(q, k, v, is_causal=True)
         return self.out_proj(out.transpose(1, 2).reshape(batch, seq, -1))
+
+
+class MLP(nn.Module):
+    def __init__(self, config: LlamaConfig):
+        super().__init__()
+        self.up_proj = nn.Linear(config.hidden_size, config.intermediate_size, bias=False)
+        self.gate_proj = nn.Linear(config.hidden_size, config.intermediate_size, bias=False)
+        self.down_proj = nn.Linear(config.intermediate_size, config.hidden_size, bias=False)
+        for proj in (self.up_proj, self.gate_proj, self.down_proj):
+            init_linear(proj.weight)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return self.down_proj(F.silu(self.gate_proj(x)) * self.up_proj(x))

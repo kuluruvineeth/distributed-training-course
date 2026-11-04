@@ -79,4 +79,4 @@ uv run python why-distributed/estimate.py
 
 This prints the memory and compute estimates for 8B, 70B, and 405B with the same assumptions. The minimum GPU counts cover training state only; activations and runtime overhead need additional room.
 
-[Run the checks](../tests)
+[Excalidraw board](../boards/why-distributed-training.excalidraw) · [Run the checks](../tests)

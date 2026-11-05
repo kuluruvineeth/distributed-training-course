@@ -2,7 +2,8 @@
 
 I'm learning how models train across GPUs. This repo is where I work through the questions with code, diagrams, and small experiments.
 
-[Why distributed training?](why-distributed/README.md) starts with a model on one device: how its parts fit together, how much memory training needs, and how long the computation takes. The examples use Llama models to make the numbers concrete.
+- [Why distributed training?](why-distributed/README.md): build a model, count its parameters, and work out training memory and compute.
+- [How GPUs communicate](collectives/README.md): follow tensors across four processes, then see what breaks when one process skips a call.
 
 ## Run the code
 
@@ -11,28 +12,22 @@ Install [uv](https://docs.astral.sh/uv/getting-started/installation/), then:
 ```bash
 git clone https://github.com/kuluruvineeth/learning-distributed-training.git
 cd learning-distributed-training
-git switch why-distributed-training
+git switch collectives
 uv sync --locked --python 3.12
 uv run pytest -q
-uv run python why-distributed/params.py
+uv run torchrun --nproc-per-node=4 --master-port=29500 collectives/collectives.py
 ```
 
-The code runs on a CPU. Large-model calculations use PyTorch's meta device to work with shapes without allocating the full weights. The tests compare a small model's outputs and gradients with Transformers and check the parameter and FLOP formulas.
-
-The [topic notes](why-distributed/README.md) contain the other commands and the assumptions behind the estimates.
+These examples run on CPU. The [collectives notes](collectives/README.md) include the macOS setup and the intentional deadlock example. The [model notes](why-distributed/README.md) cover the parameter, memory, and compute calculations.
 
 ## Diagrams
 
-[Download the Excalidraw board](https://github.com/kuluruvineeth/learning-distributed-training/releases/download/why-distributed-training/why-distributed-training.excalidraw) and open it in [Excalidraw](https://excalidraw.com).
+Download a board and open it in [Excalidraw](https://excalidraw.com):
 
-## Finding your way around
+- [Why distributed training?](https://github.com/kuluruvineeth/learning-distributed-training/releases/download/why-distributed-training/why-distributed-training.excalidraw)
+- [How GPUs communicate](https://github.com/kuluruvineeth/learning-distributed-training/releases/download/collectives/collectives.excalidraw)
 
-- `src/dtrain/`: the model, loss function, weight mapping, and memory and FLOP formulas.
-- `why-distributed/`: experiments and notes.
-- `tests/`: checks against the formulas and Transformers.
-- `boards/`: diagrams.
-
-The commits follow the build. `main` contains the work I've shared so far; topic branches and tags keep the matching snapshots available. The current snapshot is [`why-distributed-training`](https://github.com/kuluruvineeth/learning-distributed-training/tree/why-distributed-training).
+The commits follow the build. `main` contains the work I've shared so far. Topic branches and tags keep the matching snapshots: [`why-distributed-training`](https://github.com/kuluruvineeth/learning-distributed-training/tree/why-distributed-training) and [`collectives`](https://github.com/kuluruvineeth/learning-distributed-training/tree/collectives).
 
 ## License
 

@@ -22,3 +22,9 @@ jobs:
           OMP_NUM_THREADS: "1"
           GLOO_SOCKET_IFNAME: lo
         run: uv run torchrun --nproc-per-node=4 --master-port=29500 collectives/collectives.py
+      - name: Run four-process ring all-reduce demo
+        timeout-minutes: 2
+        env:
+          OMP_NUM_THREADS: "1"
+          GLOO_SOCKET_IFNAME: lo
+        run: uv run torchrun --nproc-per-node=4 --master-port=29500 ring-all-reduce/ring_all_reduce.py

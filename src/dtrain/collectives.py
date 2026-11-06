@@ -18,3 +18,13 @@ def _chunks(tensor: torch.Tensor, world: int) -> torch.Tensor:
 def _exchange(outgoing: torch.Tensor, incoming: torch.Tensor, right: int, left: int) -> None:
     for request in (dist.isend(outgoing, right), dist.irecv(incoming, left)):
         request.wait()
+
+
+def ring_reduce_scatter(tensor: torch.Tensor) -> int:
+    rank, world, right, left = _neighbors()
+    chunks = _chunks(tensor, world)
+    inbox = torch.empty_like(chunks[0])
+    for step in range(world - 1):
+        _exchange(chunks[(rank - step) % world], inbox, right, left)
+        chunks[(rank - step - 1) % world] += inbox
+    return (rank + 1) % world

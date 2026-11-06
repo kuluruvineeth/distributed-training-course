@@ -28,3 +28,16 @@ def ring_reduce_scatter(tensor: torch.Tensor) -> int:
         _exchange(chunks[(rank - step) % world], inbox, right, left)
         chunks[(rank - step - 1) % world] += inbox
     return (rank + 1) % world
+
+
+def ring_all_gather(tensor: torch.Tensor, owned: int) -> None:
+    rank, world, right, left = _neighbors()
+    chunks = _chunks(tensor, world)
+    inbox = torch.empty_like(chunks[0])
+    for step in range(world - 1):
+        _exchange(chunks[(owned - step) % world], inbox, right, left)
+        chunks[(owned - step - 1) % world].copy_(inbox)
+
+
+def ring_all_reduce(tensor: torch.Tensor) -> None:
+    ring_all_gather(tensor, ring_reduce_scatter(tensor))

@@ -23,3 +23,9 @@ def training_bytes(
     if fp32_grad_accumulation:
         out["fp32 gradients"] = 4 * params
     return out
+
+
+def activation_bytes(config: LlamaConfig, seq_length: int, micro_batch_size: int) -> int:
+    h, a = config.hidden_size, config.num_attention_heads
+    per_layer = seq_length * micro_batch_size * h * (34 + 5 * a * seq_length / h)
+    return int(config.num_hidden_layers * per_layer)

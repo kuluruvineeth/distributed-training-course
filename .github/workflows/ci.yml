@@ -28,3 +28,6 @@ jobs:
           OMP_NUM_THREADS: "1"
           GLOO_SOCKET_IFNAME: lo
         run: uv run torchrun --nproc-per-node=4 --master-port=29500 ring-all-reduce/ring_all_reduce.py
+      - name: Run a short single-device training
+        timeout-minutes: 3
+        run: uv run python single-device/train.py --steps 25

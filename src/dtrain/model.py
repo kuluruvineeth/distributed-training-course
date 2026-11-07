@@ -4,6 +4,7 @@ from dataclasses import dataclass
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.utils.checkpoint import checkpoint
 
 
 @dataclass
@@ -106,11 +107,12 @@ class DecoderLayer(nn.Module):
 
 
 class Llama(nn.Module):
-    def __init__(self, config: LlamaConfig):
+    def __init__(self, config: LlamaConfig, recompute: bool = False):
         super().__init__()
         if config.num_attention_heads % config.num_key_value_heads != 0:
             raise ValueError("num_attention_heads must be a multiple of num_key_value_heads")
         self.config = config
+        self.recompute = recompute
         self.embedding = nn.Embedding(config.vocab_size, config.hidden_size)
         nn.init.normal_(self.embedding.weight, mean=0.0, std=1.0)
         self.decoder_layers = nn.ModuleList(
@@ -126,5 +128,8 @@ class Llama(nn.Module):
     def forward(self, input_ids: torch.Tensor) -> torch.Tensor:
         x = self.embedding(input_ids)
         for layer in self.decoder_layers:
-            x = layer(x, self.cos, self.sin)
+            if self.recompute and self.training:
+                x = checkpoint(layer, x, self.cos, self.sin, use_reentrant=False)
+            else:
+                x = layer(x, self.cos, self.sin)
         return self.final_proj(self.final_norm(x))

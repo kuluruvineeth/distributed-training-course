@@ -71,3 +71,17 @@ def test_llama3_8b_param_count():
         num_key_value_heads=8,
     )
     assert num_params(config) == 8_030_261_248
+
+
+def test_recompute_gives_same_gradients():
+    torch.manual_seed(0)
+    plain = Llama(CONFIG)
+    recomputed = Llama(CONFIG, recompute=True)
+    recomputed.load_state_dict(plain.state_dict())
+    ids = torch.randint(0, CONFIG.vocab_size, (2, 33), generator=torch.Generator().manual_seed(3))
+    for model in (plain, recomputed):
+        loss_fn(model(ids[:, :-1]), ids[:, 1:]).backward()
+    for (name, a), (_, b) in zip(
+        plain.named_parameters(), recomputed.named_parameters(), strict=True
+    ):
+        torch.testing.assert_close(a.grad, b.grad, rtol=0, atol=0, msg=name)
